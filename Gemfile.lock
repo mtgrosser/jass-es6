@@ -1,0 +1,26 @@
+PATH
+  remote: .
+  specs:
+    jass-es6 (1.0.0)
+      nodo (>= 1.6.2)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    byebug (11.1.2)
+    minitest (5.14.0)
+    nodo (1.6.2)
+    rake (13.0.1)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  bundler
+  byebug
+  jass-es6!
+  minitest
+  rake
+
+BUNDLED WITH
+   1.17.2

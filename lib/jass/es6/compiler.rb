@@ -2,13 +2,35 @@ class Jass::ES6::Compiler < Nodo::Core
   require Buble: 'buble',
           NodentCompiler: 'nodent-compiler',
           Rollup: 'rollup',
-          nodeResolve: 'rollup-plugin-node-resolve',
-          commonjs: 'rollup-plugin-commonjs'
+          commonjs: '@rollup/plugin-commonjs',
+          nodeResolve: '@rollup/plugin-node-resolve'
   
-  script <<~'JS'
-    const Nodent = new NodentCompiler;
-  JS
+  const :PLUGINS, []
+  
+  class << self
+    attr_accessor :input_options, :plugins
     
+    def prepend_plugin(package, name, arguments = nil)
+      plugins.unshift(Jass::ES6::Plugin.new(name, arguments))
+      require name => package
+    end
+    
+    def append_plugin(package, name, arguments = nil)
+      plugins.push(Jass::ES6::Plugin.new(name, arguments))
+      require name => package
+    end
+  end
+  
+  self.input_options = {}
+  self.plugins = []
+  
+  script do
+    <<~JS
+      const Nodent = new NodentCompiler;
+      #{plugins.map(&:to_js).join}
+    JS
+  end
+
   function :nodent, <<~'JS'
     (src, filename) => {
       return Nodent.compile(src, filename,
@@ -36,14 +58,15 @@ class Jass::ES6::Compiler < Nodo::Core
 
   # Build bundle with imports: buble(rollup(nodent(src)))
   function :js_bundle, <<~'JS'
-    (entry, moduleDirectories, inputOptions, outputOptions) {
+    (entry, inputOptions, outputOptions) => {
       inputOptions = inputOptions || {};
       outputOptions = outputOptions || {};
       const inputDefaultOptions = {
         input: entry,
         treeshake: false,
         plugins: [
-          nodeResolve({ customResolveOptions: { moduleDirectory: moduleDirectories }}),
+          ...PLUGINS,
+          nodeResolve.nodeResolve({ moduleDirectories: [process.env.NODE_PATH] }),
           commonjs()
         ]
       };
@@ -54,15 +77,20 @@ class Jass::ES6::Compiler < Nodo::Core
           exports: 'none'
         }
       );
-      const promise = Rollup.rollup({ ...inputDefaultOptions, ...inputOptions })
-          .then(bundle => bundle.generate(outputOptions))
-          .then(bundle => { return { code: send('compile', bundle.code), map: bundle.map }; });
-      return promise;
+      const io = { ...inputDefaultOptions, ...inputOptions };
+      nodo.debug(JSON.stringify(io));
+      nodo.debug(JSON.stringify(outputOptions));
+      return Rollup.rollup(io)
+        .then(bundle => bundle.generate(outputOptions))
+        .then(bundle => {
+          const output = bundle.output[0];
+          return { code: compile(output.code), map: output.map };
+      });
     }
   JS
   
-  def bundle(entry, input_options: Jass::ES6.input_options, output_options: {})
-    js_bundle(entry, self.class.node_paths, input_options, output_options)
+  class_function def bundle(entry, input_options: self.class.input_options, output_options: {})
+    js_bundle(entry, input_options, output_options)
   end
   
   # Get vendor library versions
