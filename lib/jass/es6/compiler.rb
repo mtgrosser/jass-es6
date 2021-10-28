@@ -63,7 +63,6 @@ class Jass::ES6::Compiler < Nodo::Core
       outputOptions = outputOptions || {};
       const inputDefaultOptions = {
         input: entry,
-        treeshake: false,
         plugins: [
           ...PLUGINS,
           nodeResolve.nodeResolve({ moduleDirectories: [process.env.NODE_PATH] }),
