@@ -1,0 +1,1 @@
+require 'jass/es6'
